@@ -1,21 +1,39 @@
 import CloudKit
 import Foundation
 
+/// Resigned builds (Sideloadly, TrollStore, enterprise/ad-hoc certificates) often lose the
+/// iCloud container entitlement. `CKContainer(identifier:)` then raises an Objective-C
+/// exception that terminates the app, so the container is only created once the
+/// entitlement is known to be present.
+enum CloudKitContainerGate {
+    static func hasICloudEntitlement() -> Bool {
+        FileManager.default.url(forUbiquityContainerIdentifier: nil) != nil
+    }
+}
+
  
  
  
 public final class CloudKitBackupRecordSink: BackupRecordSink, @unchecked Sendable {
-    private let container: CKContainer
+    private let containerIdentifier: String
      
      
     public var diagnostics: (@Sendable (String) -> Void)?
 
     public init(containerIdentifier: String) {
-        container = CKContainer(identifier: containerIdentifier)
+        self.containerIdentifier = containerIdentifier
+    }
+
+    private func makeContainer() throws -> CKContainer {
+        guard CloudKitContainerGate.hasICloudEntitlement() else {
+            throw BackupRecordSinkError.unavailable("iCloud is unavailable (not signed in, or this build lacks the iCloud entitlement).")
+        }
+        return CKContainer(identifier: containerIdentifier)
     }
 
     public func upsert(_ payload: BackupRecordPayload) async throws {
-        try await requireAccount()
+        let container = try makeContainer()
+        try await requireAccount(container)
         if let diagnostics {
              
              
@@ -42,7 +60,8 @@ public final class CloudKitBackupRecordSink: BackupRecordSink, @unchecked Sendab
     }
 
     public func deleteOwn(installID: String) async throws {
-        try await requireAccount()
+        let container = try makeContainer()
+        try await requireAccount(container)
         do {
             _ = try await container.privateCloudDatabase.modifyRecords(
                 saving: [], deleting: [CKRecord.ID(recordName: installID)], savePolicy: .allKeys, atomically: true
@@ -70,7 +89,7 @@ public final class CloudKitBackupRecordSink: BackupRecordSink, @unchecked Sendab
         return record
     }
 
-    private func requireAccount() async throws {
+    private func requireAccount(_ container: CKContainer) async throws {
         let status: CKAccountStatus
         do {
             status = try await container.accountStatus()

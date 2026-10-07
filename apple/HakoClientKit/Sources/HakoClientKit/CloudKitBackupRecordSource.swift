@@ -6,13 +6,21 @@ import Foundation
  
  
 public final class CloudKitBackupRecordSource: BackupRecordSource, @unchecked Sendable {
-    private let container: CKContainer
+    private let containerIdentifier: String
 
     public init(containerIdentifier: String) {
-        container = CKContainer(identifier: containerIdentifier)
+        self.containerIdentifier = containerIdentifier
+    }
+
+    private func makeContainer() throws -> CKContainer {
+        guard CloudKitContainerGate.hasICloudEntitlement() else {
+            throw BackupRecordSourceError.unavailable("iCloud is unavailable (not signed in, or this build lacks the iCloud entitlement).")
+        }
+        return CKContainer(identifier: containerIdentifier)
     }
 
     public func listBackups() async throws -> [BackupRecordSummary] {
+        let container = try makeContainer()
         let status: CKAccountStatus
         do {
             status = try await container.accountStatus()
@@ -46,6 +54,7 @@ public final class CloudKitBackupRecordSource: BackupRecordSource, @unchecked Se
     }
 
     public func fetchArchive(installID: String) async throws -> Data {
+        let container = try makeContainer()
         let record: CKRecord
         do {
             record = try await container.privateCloudDatabase.record(for: CKRecord.ID(recordName: installID))
