@@ -1,0 +1,50 @@
+name: Build iOS IPA (unsigned)
+
+# Builds the upstream source unchanged, following the README:
+# bootstrap.py -> configure.py -> xcodebuild. Only signing is disabled.
+on:
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: xcode-27
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain info
+        run: |
+          xcodebuild -version
+          go version || true
+          python3 --version
+      - name: Install XcodeGen and PyYAML
+        run: |
+          brew install xcodegen
+          python3 -m venv .build/python-env
+          .build/python-env/bin/pip install PyYAML
+      - name: Bootstrap (kernel SDK + adapter)
+        env:
+          GOTOOLCHAIN: auto
+        run: .build/python-env/bin/python3 scripts/bootstrap.py
+      - name: Generate Xcode project
+        run: .build/python-env/bin/python3 scripts/configure.py
+      - name: Build iOS app (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project apple/HakoClient/HakoClient.xcodeproj \
+            -scheme HakoClient -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tail -200
+      - name: Package IPA
+        run: |
+          APP=$(find build/dd/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          echo "app=$APP"; ls "$APP"; ls "$APP/PlugIns" || true
+          mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          (cd out && zip -qry Hako-iOS-unsigned.ipa Payload)
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Hako-iOS-unsigned
+          path: out/Hako-iOS-unsigned.ipa
