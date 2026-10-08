@@ -660,6 +660,7 @@ private actor HakoIPCChannel {
                 Task { await self?.finish(id: pending.id, reply: reply) }
             }
         } catch {
+            HakoLogStore.shared.append("ipc: sendProviderMessage threw \(error)", stream: .app, level: .warning)
             finish(id: pending.id, reply: nil)
             return
         }
@@ -703,8 +704,19 @@ struct HakoClient {
     }
 
     func hello() async throws -> HakoCommandHello {
-        guard let data = await send(["cmd": "hello"]) else {
+        // Diagnostics: say exactly why the handshake failed instead of the
+        // generic "schema range 0...0".
+        let status = session.status.rawValue
+        guard isVPNActive else {
+            HakoLogStore.shared.append("hello: session not active status=\(status)", stream: .app, level: .warning)
             throw HakoCommandCompatibilityError.invalidPeerRange(minimum: 0, current: 0)
+        }
+        guard let data = await send(["cmd": "hello"]) else {
+            HakoLogStore.shared.append("hello: no reply from extension status=\(session.status.rawValue)", stream: .app, level: .warning)
+            throw HakoCommandCompatibilityError.invalidPeerRange(minimum: 0, current: 0)
+        }
+        if (try? JSONDecoder().decode(HakoCommandHello.self, from: data)) == nil {
+            HakoLogStore.shared.append("hello: undecodable reply=\(String(decoding: data.prefix(300), as: UTF8.self))", stream: .app, level: .warning)
         }
         do {
             let hello = try JSONDecoder().decode(HakoCommandHello.self, from: data)

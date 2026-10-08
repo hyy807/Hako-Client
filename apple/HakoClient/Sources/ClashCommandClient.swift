@@ -2077,7 +2077,26 @@ return
         armAttemptWatchdog(token: token)
         connectTask = Task { [weak self] in
             do {
-                let hello = try await HakoClient(session: providerSession).hello()
+                // The provider-message handshake can fail after re-signing
+                // (sendProviderMessage returns nil) even though the tunnel and
+                // its Clash API socket are up. The socket lives in the shared
+                // App Group, so fall back to it instead of giving up.
+                let hello: HakoCommandHello
+                do {
+                    hello = try await HakoClient(session: providerSession).hello()
+                } catch {
+                    let socket = container.appendingPathComponent("clash.sock").path
+                    guard FileManager.default.fileExists(atPath: socket) else { throw error }
+                    HakoLogStore.shared.append(
+                        "control-session/hello-fallback: \(error.localizedDescription); using clash.sock directly",
+                        stream: .app, level: .warning)
+                    hello = HakoCommandHello(
+                        schemaVersion: HakoCommandSchemaVersion,
+                        minSchemaVersion: HakoCommandSchemaMinVersion,
+                        coreVersion: "unknown",
+                        capabilities: [HakoCommandCapability.stunV1]
+                    )
+                }
                  
                  
                  
