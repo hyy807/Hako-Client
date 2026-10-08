@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kernel": {
     "repository": "https://github.com/hyy807/Hako.git",
-    "revision": "9e6518fae94b21f8a350237fedbe71a45783b136"
+    "revision": "9213ef139a301814086a45402d1fafc16f828afe"
   },
   "adapter": {
     "repository": "https://github.com/TokenPLS/Hako-Adapter.git",
