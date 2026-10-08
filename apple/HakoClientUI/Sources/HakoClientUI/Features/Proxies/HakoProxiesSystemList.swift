@@ -578,23 +578,14 @@ struct HakoProxyMemberListRow: View, Equatable {
                         .opacity(isCurrent ? 1 : 0)
                         .frame(width: 18)
                         .accessibilityHidden(!isCurrent)
-                    if density == .standard {
-                        VStack(alignment: .leading, spacing: 2) {
-                             
-                             
-                             
-                             
-                            HakoRegionalFlag.label(row.name, pointSize: 15, relativeTo: .subheadline)
-                                .font(.subheadline)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            subtitle
-                        }
-                    } else {
+                    // Always show the protocol under the node name, also in
+                    // the compact layout.
+                    VStack(alignment: .leading, spacing: density == .standard ? 2 : 1) {
                         HakoRegionalFlag.label(row.name, pointSize: 15, relativeTo: .subheadline)
                             .font(.subheadline)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                        subtitle
                     }
                     Spacer(minLength: 8)
                      
@@ -734,7 +725,7 @@ struct HakoProxyMemberListRow: View, Equatable {
              
              
             HStack(spacing: 4) {
-                Text(hako: .verbatim(row.type.uppercased()))
+                Text(hako: .verbatim(row.type))
                 HakoRegionalFlag.label("· \(route)", pointSize: 11, relativeTo: .caption2)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -743,7 +734,7 @@ struct HakoProxyMemberListRow: View, Equatable {
             .foregroundStyle(.secondary)
             .lineLimit(1)
         } else {
-            Text(hako: .verbatim(row.type.uppercased()))
+            Text(hako: .verbatim(row.type))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
