@@ -66,7 +66,7 @@ public struct LatencyProbePolicy: Equatable, Sendable {
      
      
     public static let iPhone = LatencyProbePolicy(
-        maxConcurrentProbes: 12,
+        maxConcurrentProbes: 24,
         packetTunnelScaleTiers: true,
          
          
@@ -76,7 +76,7 @@ public struct LatencyProbePolicy: Equatable, Sendable {
         restNanoseconds: 0
     )
     public static let iPadOS = LatencyProbePolicy(
-        maxConcurrentProbes: 12,
+        maxConcurrentProbes: 24,
         packetTunnelScaleTiers: true,
          
          
@@ -116,7 +116,7 @@ public struct LatencyProbePolicy: Equatable, Sendable {
     public var fixedConcurrentProbes: Int?
 
     public init(maxConcurrentProbes: Int) {
-        self.maxConcurrentProbes = min(max(maxConcurrentProbes, 1), 16)
+        self.maxConcurrentProbes = min(max(maxConcurrentProbes, 1), 32)
         packetTunnelScaleTiers = false
         restEveryProbes = 0
         restNanoseconds = 0
@@ -128,7 +128,7 @@ public struct LatencyProbePolicy: Equatable, Sendable {
         restEveryProbes: Int = 0,
         restNanoseconds: UInt64 = 0
     ) {
-        self.maxConcurrentProbes = min(max(maxConcurrentProbes, 1), 16)
+        self.maxConcurrentProbes = min(max(maxConcurrentProbes, 1), 32)
         self.packetTunnelScaleTiers = packetTunnelScaleTiers
         self.restEveryProbes = max(0, restEveryProbes)
         self.restNanoseconds = restNanoseconds
@@ -142,13 +142,13 @@ public struct LatencyProbePolicy: Equatable, Sendable {
      
      
     public func concurrentProbeCount(for targetCount: Int) -> Int {
-        if let fixed = fixedConcurrentProbes { return min(max(fixed, 1), 16) }
+        if let fixed = fixedConcurrentProbes { return min(max(fixed, 1), 32) }
         guard packetTunnelScaleTiers else { return maxConcurrentProbes }
         switch max(0, targetCount) {
         case ...160:
             return maxConcurrentProbes
         case ...512:
-            return min(maxConcurrentProbes, 8)
+            return min(maxConcurrentProbes, 16)
         default:
              
              
@@ -163,7 +163,7 @@ public struct LatencyProbePolicy: Equatable, Sendable {
              
              
              
-            return min(maxConcurrentProbes, 8)
+            return min(maxConcurrentProbes, 12)
         }
     }
 
@@ -178,7 +178,7 @@ public struct LatencyProbePolicy: Equatable, Sendable {
      
      
     public var probeFailureFloorNanoseconds: UInt64 {
-        packetTunnelScaleTiers ? 100_000_000 : 0
+        packetTunnelScaleTiers ? 20_000_000 : 0
     }
 
      
