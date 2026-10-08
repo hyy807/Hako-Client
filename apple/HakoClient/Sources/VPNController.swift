@@ -2262,9 +2262,33 @@ final class VPNController: ObservableObject, DNSOnlyTunnelControlling {
             sawStartAttempt = true
         }
         if startFailureTracker.statusDidChange(to: connection.status) {
+            // The first start after the profile was re-saved/re-enabled (e.g.
+            // another VPN app took over, or a cold app launch) often dies in
+            // ~20 ms with NEVPNConnectionErrorDomain 12 before the extension
+            // is even launched; a second start a moment later succeeds.
+            // Retry once silently instead of showing a tunnel error.
+            if startFailureTracker.consecutiveInstantFailures == 1, !instantFailureRetryInFlight {
+                instantFailureRetryInFlight = true
+                HakoLogStore.shared.append(
+                    "vpn start died instantly, retrying once", stream: .app, level: .warning)
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    guard let self else { return }
+                    defer { self.instantFailureRetryInFlight = false }
+                    guard !self.userStopInFlight,
+                          !HakoSystemVPNPolicy.isActive(self.status) else { return }
+                    let started = await self.start(origin: .programmatic)
+                    if !started, let connection = self.manager?.connection {
+                        await self.resolveLastDisconnectError(on: connection)
+                    }
+                }
+                return
+            }
             await resolveLastDisconnectError(on: connection)
         }
     }
+
+    private var instantFailureRetryInFlight = false
 
     func refreshLastDisconnectErrorAfterFailedStart() async {
          
